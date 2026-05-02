@@ -1,10 +1,11 @@
 import discord
 from discord.ext import tasks
-from datetime import date
+from datetime import date, time
 import random
 import os
 from threading import Thread
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import datetime
 
 TOKEN = os.environ.get("DISCORD_TOKEN")
 CHANNEL_ID = 1500082105827332116
@@ -105,7 +106,8 @@ def get_data(zbývá):
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 
-@tasks.loop(hours=24)
+# Každý den v 8:00 ráno (UTC+1 = Praha, Render běží v UTC takže 7:00 UTC)
+@tasks.loop(time=time(hour=7, minute=0, tzinfo=datetime.timezone.utc))
 async def daily_message():
     channel = client.get_channel(CHANNEL_ID)
     zbývá = (STATNICE_DATUM - date.today()).days
@@ -180,12 +182,16 @@ async def daily_message():
     else:
         await channel.send(embed=embed)
 
+@daily_message.before_loop
+async def before_daily():
+    await client.wait_until_ready()
+
 @client.event
 async def on_ready():
     print(f"✅ Bot přihlášen jako {client.user}")
     print(f"📅 Státnice: {STATNICE_DATUM} — zbývá {(STATNICE_DATUM - date.today()).days} dní")
     Thread(target=run_server, daemon=True).start()
-    await daily_message()
-    daily_message.start()
+    if not daily_message.is_running():
+        daily_message.start()
 
 client.run(TOKEN)
