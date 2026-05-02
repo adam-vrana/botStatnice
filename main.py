@@ -3,11 +3,24 @@ from discord.ext import tasks
 from datetime import date
 import random
 import os
+from threading import Thread
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 TOKEN = os.environ.get("DISCORD_TOKEN")
 CHANNEL_ID = 1500082105827332116
 STATNICE_DATUM = date(2026, 5, 31)
 ZACATEK = date(2026, 5, 4)
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+    def log_message(self, *args):
+        pass
+
+def run_server():
+    HTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
 
 def progress_bar(zbývá):
     celkem = (STATNICE_DATUM - ZACATEK).days
@@ -118,43 +131,36 @@ async def daily_message():
         title=f"{emoji}  STÁTNICE ZA {zbývá} DNÍ  {emoji}",
         color=barva
     )
-
     embed.add_field(
         name="⏳  Zbývá",
         value=f"**{zbývá} dní** ({tydny} týdnů a {dny_navic} dní)",
         inline=False
     )
-
     embed.add_field(
         name="📊  Postup",
         value=f"`{bar}` **{procent}%** odpracováno",
         inline=False
     )
-
     embed.add_field(
         name="💬  Dnešní zpráva",
         value=f"*{vzkaz}*",
         inline=False
     )
-
     embed.add_field(
         name="🧠  Zamysli se",
         value=f"_{motivace}_",
         inline=False
     )
-
     embed.add_field(
         name="🚨  Stav",
         value=f"**{stav}**",
         inline=True
     )
-
     embed.add_field(
         name="📅  Datum státnic",
         value=f"**{STATNICE_DATUM.strftime('%d. %m. %Y')}**",
         inline=True
     )
-
     embed.set_footer(text="Statnice Sender • Každý den se počítá. • Dnes je další šance.")
 
     soubory = [
@@ -178,6 +184,7 @@ async def daily_message():
 async def on_ready():
     print(f"✅ Bot přihlášen jako {client.user}")
     print(f"📅 Státnice: {STATNICE_DATUM} — zbývá {(STATNICE_DATUM - date.today()).days} dní")
+    Thread(target=run_server, daemon=True).start()
     await daily_message()
     daily_message.start()
 
